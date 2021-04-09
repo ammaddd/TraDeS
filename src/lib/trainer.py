@@ -170,6 +170,7 @@ class Trainer(object):
     for iter_id, batch in enumerate(data_loader):
       if iter_id >= num_iters:
         break
+      global_step = (epoch-1)*len(data_loader)+iter_id
       data_time.update(time.time() - end)
 
       for k in batch:
@@ -185,7 +186,7 @@ class Trainer(object):
         im = batch['image'][0, ...].permute(1, 2, 0).to('cpu').numpy()
         experiment.log_image(im[:, :, ::-1], name='{}_images'.format
                              (phase), image_channels="last",
-                             step=(iter_id+1)*epoch)
+                             step=global_step)
 
       batch_time.update(time.time() - end)
       end = time.time()
@@ -209,7 +210,7 @@ class Trainer(object):
         self.debug(batch, output, iter_id, dataset=data_loader.dataset)
       for k,v in avg_loss_stats.items():
         experiment.log_metric('{}_{}'.format(phase, k), v.avg,
-                              step=epoch*(iter_id+1), epoch=epoch)
+                              step=global_step, epoch=epoch)
       del output, loss, loss_stats
     
     bar.finish()
