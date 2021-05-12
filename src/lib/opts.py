@@ -52,6 +52,8 @@ class opts(object):
                              help='used when training in slurm clusters.')
 
     # log
+    self.parser.add_argument('--comet', type=bool, default=False,
+                             help='enable comet logging (if comet installed)')
     self.parser.add_argument('--print_iter', type=int, default=0, 
                              help='disable progress bar and print to screen.')
     self.parser.add_argument('--save_all', action='store_true',

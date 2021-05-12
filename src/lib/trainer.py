@@ -149,7 +149,7 @@ class Trainer(object):
         if isinstance(v, torch.Tensor):
           state[k] = v.to(device=device, non_blocking=True)
 
-  def run_epoch(self, phase, epoch, data_loader, experiment):
+  def run_epoch(self, phase, epoch, data_loader, comet_logger):
     model_with_loss = self.model_with_loss
     if phase == 'train':
       model_with_loss.train()
@@ -184,9 +184,9 @@ class Trainer(object):
         self.optimizer.step()
       if iter_id % 200 == 0:
         im = batch['image'][0, ...].permute(1, 2, 0).to('cpu').numpy()
-        experiment.log_image(im[:, :, ::-1], name='{}_images'.format
-                             (phase), image_channels="last",
-                             step=global_step)
+        comet_logger.log_image(im[:, :, ::-1], name='{}_images'.format
+                               (phase), image_channels="last",
+                               step=global_step)
 
       batch_time.update(time.time() - end)
       end = time.time()
@@ -209,8 +209,8 @@ class Trainer(object):
       if opt.debug > 0:
         self.debug(batch, output, iter_id, dataset=data_loader.dataset)
       for k,v in avg_loss_stats.items():
-        experiment.log_metric('{}_{}'.format(phase, k), v.avg,
-                              step=global_step, epoch=epoch)
+        comet_logger.log_metric('{}_{}'.format(phase, k), v.avg,
+                                step=global_step, epoch=epoch)
       del output, loss, loss_stats
     
     bar.finish()
@@ -349,8 +349,8 @@ class Trainer(object):
       else:
         debugger.show_all_imgs(pause=True)
   
-  def val(self, epoch, data_loader, experiment):
-    return self.run_epoch('val', epoch, data_loader, experiment)
+  def val(self, epoch, data_loader, comet_logger):
+    return self.run_epoch('val', epoch, data_loader, comet_logger)
 
-  def train(self, epoch, data_loader, experiment):
-    return self.run_epoch('train', epoch, data_loader, experiment)
+  def train(self, epoch, data_loader, comet_logger):
+    return self.run_epoch('train', epoch, data_loader, comet_logger)
