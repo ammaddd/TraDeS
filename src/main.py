@@ -5,6 +5,7 @@ from __future__ import print_function
 import _init_paths
 import os
 
+from comet_utils import CometLogger
 import torch
 import torch.utils.data
 from opts import opts
@@ -31,6 +32,11 @@ def main(opt):
   Dataset = get_dataset(opt.dataset)
   opt = opts().update_dataset_info_and_set_heads(opt, Dataset)
   print(opt)
+
+  comet_logger = CometLogger(opt.comet, auto_metric_logging=False)
+  comet_logger.log_code('./lib/trainer.py')
+  comet_logger.log_others(vars(opt))
+
   if not opt.not_set_cuda_env:
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
   opt.device = torch.device('cuda' if opt.gpus[0] >= 0 else 'cpu')
@@ -54,7 +60,7 @@ def main(opt):
       pin_memory=True)
 
     if opt.test:
-      _, preds = trainer.val(0, val_loader)
+      _, preds = trainer.val(0, val_loader, comet_logger)
       val_loader.dataset.run_eval(preds, opt.save_dir)
       return
 
@@ -67,7 +73,7 @@ def main(opt):
   print('Starting training...')
   for epoch in range(start_epoch + 1, opt.num_epochs + 1):
     mark = epoch if opt.save_all else 'last'
-    log_dict_train, _ = trainer.train(epoch, train_loader)
+    log_dict_train, _ = trainer.train(epoch, train_loader, comet_logger)
     logger.write('epoch: {} |'.format(epoch))
     for k, v in log_dict_train.items():
       logger.scalar_summary('train_{}'.format(k), v, epoch)
@@ -75,8 +81,10 @@ def main(opt):
     if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
       save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)), 
                  epoch, model, optimizer)
+      comet_logger.log_model("TraDeS", os.path.join(opt.save_dir,
+                             'model_{}.pth'.format(mark)))
       with torch.no_grad():
-        log_dict_val, preds = trainer.val(epoch, val_loader)
+        log_dict_val, preds = trainer.val(epoch, val_loader, comet_logger)
         if opt.eval_val:
           val_loader.dataset.run_eval(preds, opt.save_dir)
       for k, v in log_dict_val.items():
@@ -85,12 +93,17 @@ def main(opt):
     else:
       save_model(os.path.join(opt.save_dir, 'model_last.pth'), 
                  epoch, model, optimizer)
+      comet_logger.log_model("TraDeS", os.path.join(opt.save_dir,
+                             'model_last.pth'))
     logger.write('\n')
     if epoch in opt.save_point:
       save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)), 
                  epoch, model, optimizer)
+      comet_logger.log_model("TraDeS", os.path.join(opt.save_dir,
+                             'model_{}.pth'.format(epoch)))
     if epoch in opt.lr_step:
       lr = opt.lr * (0.1 ** (opt.lr_step.index(epoch) + 1))
+      comet_logger.log_parameter("learning_rate", lr, epoch=epoch)
       print('Drop LR to', lr)
       for param_group in optimizer.param_groups:
           param_group['lr'] = lr
